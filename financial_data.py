@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 import matplotlib as mlp
 import matplotlib.pyplot as plt
+import seaborn as sns
 mlp.style.use('seaborn-darkgrid')
+# sns.set_theme(color_codes=True)
 
 #--------------- Financial Data Class---------------
 
@@ -173,13 +175,13 @@ class FinancialData(object):
             axs = {'ax'+str(i+1): fig.add_subplot(nrows,ncols,i+1) for i in range(len(stocks))}
             for i,stock in enumerate(stocks):
                 alpha, beta = alpha_beta[stock]
-                self.returns_df.plot(kind='scatter',ax=axs['ax'+str(i+1)],
+                self.returns.plot(kind='scatter',ax=axs['ax'+str(i+1)],
                                     x=market,y=stock,**kwargs)
                 axs['ax'+str(i+1)].plot(market_df,market_df*beta+alpha)
                 axs['ax'+str(i+1)].text(
                     market_df.min(),
                     self.returns[stock].max(),
-                    r'$\beta$ = {}  $\alpha$ = {}'.format(beta,alpha),
+                    r'$\beta$ = {}  $\alpha$ = {}'.format(round(beta,2),round(alpha,2)),
                     fontsize=15
                     )
             plt.show()
