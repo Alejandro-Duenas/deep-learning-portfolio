@@ -309,3 +309,40 @@ class Portfolio(FinancialData):
                                                     tickers,column)
         returns = portfolio_values.pct_change(window).dropna(how='all')
         return returns
+    
+    def get_performance_metrics(self,risk_free_rate=0,start_date=None,
+                                end_date=None,**kwargs):
+        """This function computes the cumulative return, the average daily 
+        return, the risk (the standard deviation) and the Sharpe Ratio of the
+        Portfolio instance
+
+        INPUTS:
+            risk_free_rate: the risk free rate of the market, which can be a 
+                constant or a series of the same length as the returns series
+        
+        OUTPUTS:
+            metrics (pandas Data Frame): the metrics of the portfolio
+        """
+        if start_date == None:
+            start_date = self.get_prices().index.values.min()
+        if end_date == None:
+            end_date = self.get_prices().index.values.max()
+        portfolio_values = self.get_portfolio_values(start_date,end_date,**kwargs)
+        def compute_cum_return(series):
+            """Computes the cumulative return of a series"""
+            mn = series.index.values.min()
+            mx = series.index.values.max()
+            cum_return = (series[mx]/series[mn])-1
+            return cum_return
+        
+        def sharpe_ratio(df,risk_free_rate):
+            """This function calculates the sharpe ratio of the returns"""
+            sr = (df-risk_free_rate).mean()/df.std()
+            return sr
+        cum_return = compute_cum_return(portfolio_values['Total'])
+        returns = self.get_returns(start_date,end_date,**kwargs)
+        sharpe_ratio = sharpe_ratio(returns['Total'],risk_free_rate)
+        metrics = returns['Total'].agg(['mean','std'])
+        metrics.loc['Cum Return'] = cum_return
+        metrics.loc['Sharpe Ratio'] = sharpe_ratio
+        return metrics
