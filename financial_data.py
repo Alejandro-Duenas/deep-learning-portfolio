@@ -125,7 +125,7 @@ class FinancialData(object):
             ax.legend();
         return series
     
-    def find_returns(self,columns='Close',tickers=None,return_window=1,plot=False,**kwargs):
+    def get_returns(self,columns='Close',tickers=None,return_window=1,plot=False,**kwargs):
         '''This function finds the returns for a set of tickers and prices
         INPUTS:
             df (pandas Data Frame): dataframe containing the time series information
@@ -215,7 +215,7 @@ class Portfolio(FinancialData):
     def __init__(self,tickers=['SPY'],period='max',weights=[1],fillna=True):
         FinancialData.__init__(self,tickers,period=period)
         self.prices = self.prepare_data(fillna=fillna)
-        self.weigths = weights
+        self.weights = weights
     
     def normalize_prices(self,start_date,end_date,tickers=None,column='Close'):
         '''This function normalizes prices according to the dates provides, slicing the
@@ -237,7 +237,7 @@ class Portfolio(FinancialData):
         norm_prices = prices.loc[start_date:end_date,columns]/prices.loc[start_date,columns]
         return norm_prices
     
-    def get_portfolio_values(self,start_date,end_date,weights,tickers=[],column='Close'):
+    def get_portfolio_values(self,start_date=None,end_date=None,tickers=None,column='Close'):
         """This function returns the daily portfolio values
         INPUTS:
             prices (Pandas Data frame): dataframe with the time series of prices
@@ -254,7 +254,14 @@ class Portfolio(FinancialData):
                 protfolio
         """
         prices = self.get_prices()
-        norm_prices = self.normalize_prices(prices,start_date,end_date,tickers,column)
+        weights = self.get_weights()
+        if start_date == None:
+            start_date = prices.index.values.min()
+        if end_date == None:
+            end_date = prices.index.values.max()
+        if tickers == None:
+            tickers = self.get_tickers()
+        norm_prices = self.normalize_prices(start_date,end_date,tickers,column)
         portfolio_values = norm_prices*weights
         portfolio_values['Total'] = portfolio_values.sum(axis=1)
         return portfolio_values
@@ -263,6 +270,10 @@ class Portfolio(FinancialData):
         """This function returns the prices attribute of the Portfolio instance
         """
         return self.prices
+    
+    def get_weights(self):
+        """This function returns the weights of the Portfolio instance"""
+        return self.weights
     
     def change_weights(self,weights):
         """This function changes the weights attribute of the Portfolio instance
@@ -275,4 +286,26 @@ class Portfolio(FinancialData):
         assert len(self.weigths) == weights, "Wrong length of weights"
         self.weights = weights
     
-    
+    def get_returns(self,start_date=None,end_date=None,tickers=None,
+                    column='Close',window=1):
+        """This function returns the daily returns of the Portfolio instance
+        INPUTS:
+            prices (Pandas Data frame): dataframe with the time series of prices
+            column (string): the information of the column to be normalized
+            start_date (string): the start date, which serves as the normalization
+                denominator
+            end_date (string): the end date of the period to be analized
+            weights (list): list of same length of tickers, with the weight of each 
+                asset
+            tickers (list): list with the tickers of the portfolio
+            window (int): the window of the returns, default daily
+        
+        OUTPUTS:
+            portfolio_values (pandas dataframe): dataframe with the daily values of the
+                protfolio
+        """
+
+        portfolio_values = self.get_portfolio_values(start_date,end_date,
+                                                    tickers,column)
+        returns = portfolio_values.pct_change(window).dropna(how='all')
+        return returns
