@@ -125,7 +125,7 @@ class FinancialData(object):
             ax.legend();
         return series
     
-    def find_returns(self,columns,tickers,return_window=1,plot=False,**kwargs):
+    def find_returns(self,columns='Close',tickers=None,return_window=1,plot=False,**kwargs):
         '''This function finds the returns for a set of tickers and prices
         INPUTS:
             df (pandas Data Frame): dataframe containing the time series information
@@ -139,6 +139,8 @@ class FinancialData(object):
             returns
         '''
         df = self.df
+        if tickers == None:
+            tickers = self.get_tickers()
         if isinstance(columns,list) and isinstance(tickers,list):
             col_names = [column+'_'+ticker for ticker in tickers for column in columns]
         elif isinstance(columns,list):
@@ -186,8 +188,6 @@ class FinancialData(object):
                     )
             plt.show()
 
-            
-
     def get_tickers(self):
         '''This function retreives the ticker attribute from the object instance
         '''
@@ -204,3 +204,75 @@ class FinancialData(object):
         self.tickers.append(ticker)
         self.prepare_data()
 
+
+
+#---------------------- Portfolio Class--------------------------
+class Portfolio(FinancialData):
+    """This class contains the information of a portfolio, and inherits
+    methods and attributes from the FinancialData class
+    """
+
+    def __init__(self,tickers=['SPY'],period='max',weights=[1],fillna=True):
+        FinancialData.__init__(self,tickers,period=period)
+        self.prices = self.prepare_data(fillna=fillna)
+        self.weigths = weights
+    
+    def normalize_prices(self,start_date,end_date,tickers=None,column='Close'):
+        '''This function normalizes prices according to the dates provides, slicing the
+        information from the start date to the end date
+        INPUTS:
+            prices (Pandas Data frame): dataframe with the time series of prices
+            column (string): the information of the column to be normalized
+            start_date (string): the start date, which serves as the normalization
+                denominator
+            end_date (string): the end date of the period to be analized
+        
+        OUTPUTS:
+            norm_prices (Pandas Data frame): dataframe with the normalized price data
+        '''
+        prices = self.prices
+        if tickers == None:
+            tickers = self.get_tickers()
+        columns = [column+'_'+ticker for ticker in tickers]
+        norm_prices = prices.loc[start_date:end_date,columns]/prices.loc[start_date,columns]
+        return norm_prices
+    
+    def get_portfolio_values(self,start_date,end_date,weights,tickers=[],column='Close'):
+        """This function returns the daily portfolio values
+        INPUTS:
+            prices (Pandas Data frame): dataframe with the time series of prices
+            column (string): the information of the column to be normalized
+            start_date (string): the start date, which serves as the normalization
+                denominator
+            end_date (string): the end date of the period to be analized
+            weights (list): list of same length of tickers, with the weight of each 
+                asset
+            tickers (list): list with the tickers of the portfolio
+        
+        OUTPUTS:
+            portfolio_values (pandas dataframe): dataframe with the daily values of the
+                protfolio
+        """
+        prices = self.get_prices()
+        norm_prices = self.normalize_prices(prices,start_date,end_date,tickers,column)
+        portfolio_values = norm_prices*weights
+        portfolio_values['Total'] = portfolio_values.sum(axis=1)
+        return portfolio_values
+
+    def get_prices(self):
+        """This function returns the prices attribute of the Portfolio instance
+        """
+        return self.prices
+    
+    def change_weights(self,weights):
+        """This function changes the weights attribute of the Portfolio instance
+        INPUTS:
+            weights (list): list with new weights.
+        
+        OUTPUTS:
+            None
+        """
+        assert len(self.weigths) == weights, "Wrong length of weights"
+        self.weights = weights
+    
+    
