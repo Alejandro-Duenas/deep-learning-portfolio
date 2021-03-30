@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib as mlp
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.optimize as spo
 mlp.style.use('seaborn-darkgrid')
 # sns.set_theme(color_codes=True)
 
@@ -342,24 +343,98 @@ class Portfolio(FinancialData):
             start_date = self.get_prices().index.values.min()
         if end_date == None:
             end_date = self.get_prices().index.values.max()
-        portfolio_values = self.get_portfolio_values(start_date,end_date,**kwargs)
+        portfolio_values = self.get_portfolio_values(start_date,end_date,
+                                                    **kwargs)
         def compute_cum_return(series):
             """Computes the cumulative return of a series"""
             mn = series.index.values.min()
             mx = series.index.values.max()
             cum_return = (series[mx]/series[mn])-1
-            return cum_return
-        
-        def sharpe_ratio(df,risk_free_rate):
-            """This function calculates the sharpe ratio of the returns"""
-            sr = (df-risk_free_rate).mean()/df.std()
-            return sr
+            return cum_return  
+
         cum_return = compute_cum_return(portfolio_values['Portfolio'])
-        returns = self.get_returns(start_date,end_date,**kwargs)
-        sharpe_ratio = sharpe_ratio(returns['Portfolio'],risk_free_rate)
+        returns = self.get_returns(start_date,end_date,
+                                   portfolio_returns=True,**kwargs)
+        sharpe_ratio = self.get_sharpe_ratio(risk_free_rate,start_date=start_date,
+                                             end_date=end_date,**kwargs)
         metrics = returns['Portfolio'].agg(['mean','std'])
         metrics.loc['Cum Return'] = cum_return
         metrics.loc['Sharpe Ratio'] = sharpe_ratio
         return metrics
+
+    def get_sharpe_ratio(self,rfr=0,negative=False,**kwargs):
+        """Compute the Sharpe Ratio of a portfolio
+        Inputs:
+        -------
+        rfr (numeric value or Pandas series): the risk free rate of 
+            the market, which can be a constant value or a series of the same
+            length than the returns of the Portfolio, with corresponding dates.
+        negative (boolean): True if you want to multiply the Sharpe Ratio by -1
+            this is used for optimizing the portfolio. Default False.
+        **kwargs: arguments for the get_returns method
+        Ouputs:
+        -------
+        sharpe_ratio (numeric value): the Sharpe Ratio of the portfolio given the
+            characteristics of the Portfoliol instance.
+        """
+        # Get building blocks for the computation:
+        returns = self.get_returns(**kwargs)
+        weights = self.get_weights()
+
+        # Get the portfolio returns:
+        portfolio_returns = (returns*weights).sum(axis=1)
+        portfolio_std = portfolio_returns.std()
+
+        # Compute Sharpe Ratio formula:
+        sharpe_ratio = (portfolio_returns-rfr).mean()/portfolio_std
+        if negative:
+            sharpe_ratio *= -1
+        return sharpe_ratio
+
+    def optimize_portfolio(self,guess_weights=None,rfr=0,**kwargs):
+        """Optimizes the weights of the assets that compose the portfolio, such
+        that it maximizes the Sharpe Ratio of the portfolio.
+        Inputs:
+        -------
+        guess_weights (list,tuple, array): an array-like object with the length
+            of the number of assets composing the portfolio, which will be used
+            to start the optimization process
+        rfr (numerical value): risk-free rate of the market, can be a series or
+            a constant.
+        **kwargs: arguments to be used in the get_returns method
+
+        Outputs:
+        --------
+        opt_weights (array-like): array-like object with the weights that maximize
+            the Sharpe Ratio of the portfolio.
+        """
+        tickers = self.get_tickers()
+
+        if guess_weights is None:
+            guess_weights = [1/len(tickers) for i in range(len(tickers))]
+        
+        # Determine the bounds of the optimized weights (min=0, max=1):
+        bounds = [(0,1) for i in range(len(tickers))]
+
+        # Determine the restrictions:
+        weights_sum_to_1 = {'type':'eq',
+                            'fun':lambda weights: np.sum(weights)-1}
+        
+        # Optimize:
+        opt_weights = spo.minimize(
+            self.get_sharpe_ratio,guess_weights,
+            args=(rfr,True,),
+            method='SLSQP', options={'disp':False},
+            constraints=(weights_sum_to_1)
+        )
+
+        # Update weights to optimized weights
+        self.change_weights(opt_weights)
+
+        return opt_weights.x
+
+
+
+        
 
         
