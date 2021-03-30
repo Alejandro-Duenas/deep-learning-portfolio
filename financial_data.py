@@ -263,7 +263,7 @@ class Portfolio(FinancialData):
             tickers = self.get_tickers()
         norm_prices = self.normalize_prices(start_date,end_date,tickers,column)
         portfolio_values = norm_prices*weights
-        portfolio_values['Total'] = portfolio_values.sum(axis=1)
+        portfolio_values['Portfolio'] = portfolio_values.sum(axis=1)
         return portfolio_values
 
     def get_prices(self):
@@ -287,27 +287,40 @@ class Portfolio(FinancialData):
         self.weights = weights
     
     def get_returns(self,start_date=None,end_date=None,tickers=None,
-                    column='Close',window=1):
+                    column='Close',window=1,portfolio_returns=False):
         """This function returns the daily returns of the Portfolio instance
-        INPUTS:
-            prices (Pandas Data frame): dataframe with the time series of prices
-            column (string): the information of the column to be normalized
-            start_date (string): the start date, which serves as the normalization
-                denominator
-            end_date (string): the end date of the period to be analized
-            weights (list): list of same length of tickers, with the weight of each 
-                asset
-            tickers (list): list with the tickers of the portfolio
-            window (int): the window of the returns, default daily
+        Inputs:
+        -------
+        prices (Pandas Data frame): dataframe with the time series of prices
+        column (string): the information of the column to be normalized
+        start_date (string): the start date, which serves as the normalization
+            denominator
+        end_date (string): the end date of the period to be analized
+        weights (list): list of same length of tickers, with the weight of each 
+            asset
+        tickers (list): list with the tickers of the portfolio
+        window (int): the window of the returns, default daily
         
-        OUTPUTS:
-            portfolio_values (pandas dataframe): dataframe with the daily values of the
-                protfolio
+        Outputs:
+        -------
+        portfolio_values (pandas dataframe): dataframe with the daily values of the
+            protfolio
         """
 
-        portfolio_values = self.get_portfolio_values(start_date,end_date,
-                                                    tickers,column)
-        returns = portfolio_values.pct_change(window).dropna(how='all')
+        # Get the returns of each asset inside the portfolio:
+        prices = self.get_prices()
+        if start_date is None:
+            start_date = prices.index.values.min()
+        if end_date is None:
+            end_date = prices.index.values.max()
+        prices = prices.loc[start_date:end_date,:]
+        returns = prices.pct_change(window).dropna(how='all')
+
+        # Add the portfolio returns
+        if portfolio_returns:
+            weights = self.get_weights()
+            returns['Portfolio'] = (returns*weights).sum(axis=1)
+
         return returns
     
     def get_performance_metrics(self,risk_free_rate=0,start_date=None,
@@ -316,12 +329,14 @@ class Portfolio(FinancialData):
         return, the risk (the standard deviation) and the Sharpe Ratio of the
         Portfolio instance
 
-        INPUTS:
-            risk_free_rate: the risk free rate of the market, which can be a 
-                constant or a series of the same length as the returns series
+        Inputs:
+        ------
+        risk_free_rate: the risk free rate of the market, which can be a 
+            constant or a series of the same length as the returns series
         
-        OUTPUTS:
-            metrics (pandas Data Frame): the metrics of the portfolio
+        Outputs:
+        -------
+         metrics (pandas Data Frame): the metrics of the portfolio
         """
         if start_date == None:
             start_date = self.get_prices().index.values.min()
@@ -339,10 +354,12 @@ class Portfolio(FinancialData):
             """This function calculates the sharpe ratio of the returns"""
             sr = (df-risk_free_rate).mean()/df.std()
             return sr
-        cum_return = compute_cum_return(portfolio_values['Total'])
+        cum_return = compute_cum_return(portfolio_values['Portfolio'])
         returns = self.get_returns(start_date,end_date,**kwargs)
-        sharpe_ratio = sharpe_ratio(returns['Total'],risk_free_rate)
-        metrics = returns['Total'].agg(['mean','std'])
+        sharpe_ratio = sharpe_ratio(returns['Portfolio'],risk_free_rate)
+        metrics = returns['Portfolio'].agg(['mean','std'])
         metrics.loc['Cum Return'] = cum_return
         metrics.loc['Sharpe Ratio'] = sharpe_ratio
         return metrics
+
+        
