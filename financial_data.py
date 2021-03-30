@@ -213,12 +213,15 @@ class Portfolio(FinancialData):
     methods and attributes from the FinancialData class
     """
 
-    def __init__(self,tickers=['SPY'],period='max',weights=[1],fillna=True):
+    def __init__(self,tickers=['SPY'],period='max',weights=[1],fillna=True,
+                 column='Close'):
         FinancialData.__init__(self,tickers,period=period)
-        self.prices = self.prepare_data(fillna=fillna)
+        columns = [column+'_'+ticker for ticker in tickers]
+        prices = self.prepare_data(fillna=fillna)
+        self.prices = prices.loc[:,columns]
         self.weights = weights
     
-    def normalize_prices(self,start_date,end_date,tickers=None,column='Close'):
+    def normalize_prices(self,start_date=None,end_date=None,tickers=None,column='Close'):
         '''This function normalizes prices according to the dates provides, slicing the
         information from the start date to the end date
         INPUTS:
@@ -234,6 +237,10 @@ class Portfolio(FinancialData):
         prices = self.prices
         if tickers == None:
             tickers = self.get_tickers()
+        if start_date is None:
+            start_date = prices.index.values.min()
+        if end_date is None:
+            end_date = prices.index.values.max()
         columns = [column+'_'+ticker for ticker in tickers]
         norm_prices = prices.loc[start_date:end_date,columns]/prices.loc[start_date,columns]
         return norm_prices
@@ -284,7 +291,7 @@ class Portfolio(FinancialData):
         OUTPUTS:
             None
         """
-        assert len(self.weigths) == weights, "Wrong length of weights"
+        assert len(self.weights) == len(weights), "Wrong length of weights"
         self.weights = weights
     
     def get_returns(self,start_date=None,end_date=None,tickers=None,
@@ -314,7 +321,10 @@ class Portfolio(FinancialData):
             start_date = prices.index.values.min()
         if end_date is None:
             end_date = prices.index.values.max()
-        prices = prices.loc[start_date:end_date,:]
+        if tickers is None:
+            tickers = self.get_tickers()
+        columns = [column+'_'+ticker for ticker in tickers]
+        prices = prices.loc[start_date:end_date,columns]
         returns = prices.pct_change(window).dropna(how='all')
 
         # Add the portfolio returns
@@ -362,7 +372,7 @@ class Portfolio(FinancialData):
         metrics.loc['Sharpe Ratio'] = sharpe_ratio
         return metrics
 
-    def get_sharpe_ratio(self,rfr=0,negative=False,**kwargs):
+    def get_sharpe_ratio(self,weights=None,rfr=0,negative=False,**kwargs):
         """Compute the Sharpe Ratio of a portfolio
         Inputs:
         -------
@@ -379,7 +389,8 @@ class Portfolio(FinancialData):
         """
         # Get building blocks for the computation:
         returns = self.get_returns(**kwargs)
-        weights = self.get_weights()
+        if weights is None:
+            weights = self.get_weights()
 
         # Get the portfolio returns:
         portfolio_returns = (returns*weights).sum(axis=1)
@@ -391,7 +402,7 @@ class Portfolio(FinancialData):
             sharpe_ratio *= -1
         return sharpe_ratio
 
-    def optimize_portfolio(self,guess_weights=None,rfr=0,**kwargs):
+    def optimize_portfolio(self,guess_weights=None,short=False,rfr=0,**kwargs):
         """Optimizes the weights of the assets that compose the portfolio, such
         that it maximizes the Sharpe Ratio of the portfolio.
         Inputs:
@@ -414,7 +425,10 @@ class Portfolio(FinancialData):
             guess_weights = [1/len(tickers) for i in range(len(tickers))]
         
         # Determine the bounds of the optimized weights (min=0, max=1):
-        bounds = [(0,1) for i in range(len(tickers))]
+        if not short:
+            bounds = [(0,1) for i in range(len(tickers))]
+        else:
+            bounds = [(-1,1) for i in range(len(tickers))]
 
         # Determine the restrictions:
         weights_sum_to_1 = {'type':'eq',
@@ -423,13 +437,15 @@ class Portfolio(FinancialData):
         # Optimize:
         opt_weights = spo.minimize(
             self.get_sharpe_ratio,guess_weights,
-            args=(rfr,True,),
+            args=(rfr,True),
             method='SLSQP', options={'disp':False},
-            constraints=(weights_sum_to_1)
+            constraints=(weights_sum_to_1),
+            bounds=bounds
         )
 
         # Update weights to optimized weights
-        self.change_weights(opt_weights)
+        print(len(opt_weights.x))
+        self.change_weights(opt_weights.x)
 
         return opt_weights.x
 
