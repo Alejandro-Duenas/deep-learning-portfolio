@@ -16,77 +16,97 @@ class FinancialData(object):
     '''This is a class stores information about financial data from ticker or 
     list of tickers, that can be prepared as a data frame and plotted.'''
     
-    def __init__(self,tickers=['SPY'],period='max'):
+    def __init__(self,tickers=['SPY']):
+        """ Initiates the FinancialData object
         
-        self.tickers = tickers
-        self.period = period
-    
-    def prepare_data(self,fillna=True):
-        '''This functions takes the data from Yahoo Finance from a set of tickers
-        and prepares it in a dataframe
-        INPUTS:
-            tickers (list): a list of all the tickers that you want to analize
-            period (string): a string with the period of the data you want to
-                            analize
-        OUTPUTS:
-            df (pandas Data Frame): Data frame with the data required
-        '''
-        tickers = self.tickers
-        period = self.period
-        if len(tickers)>1:
-            try:
-                df_information = yf.Tickers(' '.join(tickers))
-                df = pd.DataFrame(df_information.history(period=period))
-                df.columns = ['_'.join(tup) for tup in df.columns.values]
-                if fillna:
-                    df.fillna(method='ffill',inplace=True)
-                    df.fillna(method='bfill',inplace=True)
-                self.df = df
-                return self.df
-            except:
-                base_info = yf.Ticker(tickers[0])
-                base_df = pd.DataFrame(base_info.history(period=period))
-                base_df.columns = [col+'_'+tickers[0] for col in base_df.columns.values]
+        Inputs:
+        -------
+        tickers (list, default=['SPY']: list with the tickers of the assets
+            analized.
+        
+        Ouputs:
+        -------
+        None
+        """
 
-                for ticker in tickers[1:]:
-                    temp_info = yf.Ticker(ticker)
-                    temp_df = pd.DataFrame(temp_info.history(period=period))
-                    temp_df.columns = [col+'_'+ticker for col in temp_df.columns.values]
-                    base_df = base_df.join(temp_df,how='outer')
-                if fillna:
-                    base_df.fillna(method='ffill',inplace=True)
-                    base_df.fillna(method='bfill',inplace=True)
-                self.df = base_df
-                return self.df
+        self.tickers = tickers
+    
+    def prepare_data(self,fillna=True,cols='Adj Close',**kwargs):
+        '''This functions takes the data from Yahoo Finance from a set of tickers
+        and prepares it in a dataframe.
+
+        Inputs:
+        -------
+        fillna (Boolean, default=True): determines whether to fill the NaNs in 
+            the output dataframe with the financial information.
+        cols (list|strin, default='Adj Close'): the columns of information you 
+            want to extract.
+        
+        **kwargs: complementary arguments for the function yfinance.download(),
+            you can see documentation in https://pypi.org/project/yfinance/
+        
+        Outputs:
+        --------
+        df (pandas Data Frame): Data frame with the data required
+
+        '''
+        tickers = self.get_tickers()
+
+        # Extract the data from Yahoo Finance:
+        if isinstance(tickers,list):
+            tickers = ' '.join(tickers)
+            df = yf.download(tickers, **kwargs)
+            df = df[cols]
 
         else:
-            info = yf.Ticker(tickers[0])
-            df = pd.DataFrame(info.history(period=period))
-            df.columns = [column+'_'+tickers[0] for column in df.columns]
-            if fillna:
-                    df.fillna(method='ffill',inplace=True)
-                    df.fillna(method='bfill',inplace=True)
-            self.df = df
-            return df
+            df = yf.download(tickers,**kwargs)
+            df = df[cols]
+            df.rename(columns={cols:tickers})
+
+        # fill NaNs:
+        df.fillna(method='ffill',inplace=True)
+        df.fillna(method='bfill',inplace=True)
+
+        self.df = df
+        return df
         
-    def plot_data(self,column = 'Close',kind='line', 
-                  title='Historical Close Price Data',ylabel='Close Prices', 
+    def plot_data(self,tickers=None, column='Adj Close',
+                  title='Historical Adj Close Price Data',
+                  ylabel='Adj Close Prices', 
                   xlabel='Date',**kwargs):
-        '''This function plots the data in the dataframe according to the column given
-        assuming that the index of the dataframe is the x axis of the plot
-        INPUTS:
-            df (pandas dataframe): dataframe with the information to be plotted
-            tickers (list): list of the tickers to be plotted
-            column (string): the kind of data to be plotted
-        OUTPUTS:
-            None
+        '''This function plots the data in the dataframe according to the column
+         given assuming that the index of the dataframe is the x axis of the plot.
+
+        Inputs:
+        -------
+        tickers (list|str, default=None): tickers wich will be plotted
+        column (string): if there are multiple columns still, select one to plot
+        title (string, default="Historical Adj Close Price Data"): title for the
+            plot.
+        ylabel (string, default='Adj Close Prices'): y-label name for the plot.
+        xlabel (string, default='Date'): x-label name for the plot.
+        **kwargs: define the particularities of the plot, which must be arguments
+            for the function DataFrame.plot() of Pandas.
+        
+        Ouputs:
+        ------
+        ax (axis): axis of the plot
         '''
-        df = self.df
-        tickers = self.tickers
-        columns_interest = [column+'_'+ticker for ticker in tickers]
-        df[columns_interest].plot(kind=kind,title=title,**kwargs)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
+        # Retrieve important information:
+        df = self.get_data()
+        tickers = self.get_tickers()
+
+        # Define data column, if multiple data is in the dataset:
+        if isinstance(df.columns.values[0],tuple):
+            df = df[column]
+        
+        # Define the axis, and plot the data:
+        ax = df.plot(**kwargs)
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel);
+
+        return ax
     
     def rolling_statistics(self,column='Close',ticker='SPY',function=None,
                       window=20,plot=False,bollinger=False,
@@ -193,6 +213,15 @@ class FinancialData(object):
         '''This function retreives the ticker attribute from the object instance
         '''
         return self.tickers
+    
+    def get_period(self):
+        """This function retrieves the period of the FinancialData instance"""
+        return self.period
+
+    def get_data(self):
+        """This function retrieves the financial data that results from the 
+        function prepare_data()"""
+        return self.df
     
     def add_ticker(self,ticker):
         '''Adds one ticker to the list of tickers and prepares again the data
@@ -432,7 +461,7 @@ class Portfolio(FinancialData):
 
         # Determine the restrictions:
         weights_sum_to_1 = {'type':'eq',
-                            'fun':lambda weights: np.sum(weights)-1}
+                            'fun':lambda weights: np.sum(np.absolute( weights))-1}
         
         # Optimize:
         opt_weights = spo.minimize(
