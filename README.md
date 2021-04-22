@@ -1,5 +1,6 @@
 # __*Portfolio Management with Deep Learning:* Forecasting returns and managing possitions.__
 ***
+## [Medium Article](https://alejandro19971231.medium.com/deep-learning-and-portfolio-management-b3b983528a06)
 ## 1. Introduction:
 With the development of deep learning and the increasing disponibility of free high frequency financial data online, the oportunities to implement this techniques to forecast the behavior and manage assets arise. 
 
