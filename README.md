@@ -1,7 +1,7 @@
 # __*Portfolio Management with Deep Learning:* Forecasting returns and managing possitions.__
 ***
 ## 1. Introduction:
-With the development of deep learning and the increasing disponibility of free high frequency financial data online, the oportunities to implement this techniques to forecast the behaviour and manage assets arise. 
+With the development of deep learning and the increasing disponibility of free high frequency financial data online, the oportunities to implement this techniques to forecast the behavior and manage assets arise. 
 
 In this project I use machine learning algorithms, in particular *recurrent neural networks*, to forecast the returns of assets of a defined asset universe. With this forecast, I then optimize the portfolio weights and take possitions on each asset, creating the future optimal portfolio. The forecasting algorithm used is a Recurrent Neural Network with LSTM cells, whose structure is:
 
