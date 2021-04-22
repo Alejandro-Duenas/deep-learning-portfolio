@@ -29,7 +29,7 @@ To go further, it is also very helpful to read [*Machine Learning for Algoritmic
 
 ## 4. Tools and Software Used:
 Most of the project is composed of two files:
-1. A jupyter notebook developed in JupyterLab (v.3.0.11)
+1. A jupyter notebook developed in JupyterLab (v.3.0.11), where the body and explanation of the project is presented.
 2. financial_data.py, which contains key classes and functions, which are continually used through out the development of the project.
 
 The principal libraries used are:
