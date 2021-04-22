@@ -32,6 +32,8 @@ Most of the project is composed of two files:
 1. A jupyter notebook developed in JupyterLab (v.3.0.11), where the body and explanation of the project is presented.
 2. financial_data.py, which contains key classes and functions, which are continually used through out the development of the project.
 
+I also used Google Colab to train the RNN, taking advantage of the GPU service it provides.
+
 The principal libraries used are:
 + [Tensorflow](https://www.tensorflow.org): v. 2.4.1
 + quandl
